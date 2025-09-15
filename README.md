@@ -8,5 +8,4 @@
 </body>
 </html>
 
-git add README.md index.html
-git commit -m "Initial commit with README.md and index.html"
+
