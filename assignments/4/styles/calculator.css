@@ -94,3 +94,14 @@ opacity: 0.85;
 @media (max-width: 400px) {
 .calculator { width: 90%; }
 }
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 15px;
+    color: #ff9f0a;
+    font-size: 18px;
+    text-decoration: none;
+}
+.back-link:hover {
+    opacity: .7;
+}
