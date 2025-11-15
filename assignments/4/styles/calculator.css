@@ -1,3 +1,31 @@
+/* Back-to-Portfolio link */
+.back-button-container {
+position: fixed;
+top: 15px;
+left: 15px;
+z-index: 999;
+}
+
+
+.back-link {
+display: inline-block;
+padding: 8px 14px;
+background: #1c1c1e;
+border-radius: 12px;
+color: #ff9f0a;
+font-size: 18px;
+text-decoration: none;
+border: 1px solid #2c2c2e;
+box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+transition: opacity 0.2s ease;
+}
+
+
+.back-link:hover {
+opacity: 0.7;
+}
+
+
 body {
 margin: 0;
 background: #000;
@@ -36,7 +64,6 @@ display: grid;
 grid-template-columns: repeat(4, 1fr);
 gap: 12px;
 }
-
 
 .btn {
 padding: 22px;
@@ -93,15 +120,4 @@ opacity: 0.85;
 /* Responsive */
 @media (max-width: 400px) {
 .calculator { width: 90%; }
-}
-
-.back-link {
-    display: inline-block;
-    margin-bottom: 15px;
-    color: #ff9f0a;
-    font-size: 18px;
-    text-decoration: none;
-}
-.back-link:hover {
-    opacity: .7;
 }
