@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Modern Calculator</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#60a5fa; --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
+    body{background:linear-gradient(180deg,#071025 0%, #071a2b 100%);display:flex;align-items:center;justify-content:center;padding:24px;color:#e6eef8}
+    .container{width:380px;max-width:96vw;background:var(--card);border-radius:18px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.7);}
+    .display{background:var(--glass);padding:14px;border-radius:12px;min-height:86px;display:flex;flex-direction:column;justify-content:space-between}
+    .expression{font-size:18px;color:var(--muted);word-break:break-all}
+    .result{font-size:28px;font-weight:600;word-break:break-all}
+    .kbd{margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    button.key{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04);padding:14px;border-radius:12px;font-size:16px;color:#e6eef8;cursor:pointer}
+    button.key:active{transform:translateY(1px)}
+    .key.op{background:linear-gradient(180deg,#0b2b4a,#053153);border:1px solid rgba(96,165,250,0.12)}
+    .key.wide{grid-column:span 2}
+    .controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .small{font-size:13px;color:var(--muted)}
+    .history{margin-top:12px;background:rgba(255,255,255,0.02);padding:10px;border-radius:10px;max-height:140px;overflow:auto}
+    .history .item{display:flex;justify-content:space-between;padding:6px 4px;border-radius:6px}
+    .muted{color:var(--muted)}
+    .toggle{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:8px;color:var(--muted);cursor:pointer}
+    @media (max-width:420px){.container{width:320px}}
+  </style>
+</head>
+<body>
+  <div class="container" role="application" aria-label="Calculator">
+    <div class="controls">
+      <div class="small">Modern Calculator</div>
+      <div>
+        <button id="clearAll" class="toggle">Clear</button>
+      </div>
+    </div>
+
+    <div class="display" id="display">
+      <div class="expression muted" id="expression">0</div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <div class="kbd" id="keys">
+      <button class="key" data-value="7">7</button>
+      <button class="key" data-value="8">8</button>
+      <button class="key" data-value="9">9</button>
+      <button class="key op" data-value="/">÷</button>
+
+      <button class="key" data-value="4">4</button>
+      <button class="key" data-value="5">5</button>
+      <button class="key" data-value="6">6</button>
+      <button class="key op" data-value="*">×</button>
+
+      <button class="key" data-value="1">1</button>
+      <button class="key" data-value="2">2</button>
+      <button class="key" data-value="3">3</button>
+      <button class="key op" data-value="-">−</button>
+
+      <button class="key" data-value="0">0</button>
+      <button class="key" data-value=".">.</button>
+      <button class="key" id="equals" class="key op">=</button>
+      <button class="key op" data-value="+">+</button>
+
+      <button class="key wide" data-fn="paren">( )</button>
+      <button class="key" data-fn="pow">^</button>
+      <button class="key" data-fn="sqrt">√</button>
+      <button class="key" data-fn="pct">%</button>
+
+      <button class="key" data-fn="sin">sin</button>
+      <button class="key" data-fn="cos">cos</button>
+      <button class="key" data-fn="tan">tan</button>
+      <button class="key" data-fn="ln">ln</button>
+
+      <button class="key" data-fn="log">log</button>
+      <button class="key" data-fn="fact">x!</button>
+      <button class="key" data-fn="ans">ANS</button>
+      <button class="key" data-fn="back">⌫</button>
+    </div>
+
+    <div class="history" id="history" aria-live="polite"></div>
+  </div>
+
+  <script>
+    // Calculator logic
+    const expEl = document.getElementById('expression');
+    const resEl = document.getElementById('result');
+    const historyEl = document.getElementById('history');
+
+    let expr = '';
+    let lastAnswer = null;
+    let parenOpen = false;
+
+    function updateDisplay(){
+      expEl.textContent = expr || '0';
+      resEl.textContent = lastAnswer === null ? '0' : String(lastAnswer);
+    }
+
+    function sanitizeForEval(s){
+      // allow digits, whitespace, parentheses, decimal, operators, letters for functions
+      if(!/^[0-9+\-*/(). %,^eEa-zA-Z!]*$/.test(s)) throw new Error('Invalid characters');
+      // Replace unicode operators with JS
+      return s.replace(/÷/g,'/').replace(/×/g,'*').replace(/−/g,'-').replace(/\^/g,'**').replace(/%/g,'/100');
+    }
+
+    function factorial(n){
+      if(n<0) return NaN;
+      if(n===0||n===1) return 1;
+      let res=1;
+      for(let i=2;i<=Math.floor(n);i++) res*=i;
+      return res;
+    }
+
+    function evaluateExpression(raw){
+      if(!raw) return 0;
+      // map friendly names to Math functions
+      let mapped = raw
+        .replace(/(?<![a-zA-Z])sin\(/g,'Math.sin(')
+        .replace(/(?<![a-zA-Z])cos\(/g,'Math.cos(')
+        .replace(/(?<![a-zA-Z])tan\(/g,'Math.tan(')
+        .replace(/(?<![a-zA-Z])sqrt\(/g,'Math.sqrt(')
+        .replace(/(?<![a-zA-Z])ln\(/g,'Math.log(')
+        .replace(/(?<![a-zA-Z])log\(/g,'Math.log10 ? Math.log10(' , 'Math.log10(');
+      // handle factorial token x!
+      mapped = mapped.replace(/(\d+(?:\.\d+)?)!/g, (m, g1)=>"factorial("+g1+")");
+      // handle ANS
+      mapped = mapped.replace(/ANS/g, lastAnswer === null ? '0' : String(lastAnswer));
+      mapped = sanitizeForEval(mapped);
+      // replace 'log10' fallback if Math.log10 missing
+      if(!('log10' in Math)) mapped = mapped.replace(/Math.log10\(/g, '((x)=>Math.log(x)/Math.LN10)( ');
+
+      // create safe context: provide Math and factorial
+      try{
+        const fn = new Function('Math','factorial','return ('+mapped+')');
+        return fn(Math,factorial);
+      }catch(e){
+        throw new Error('Parse error');
+      }
+    }
+
+    function pushHistory(expression, value){
+      const item = document.createElement('div');
+      item.className='item';
+      const left = document.createElement('div'); left.textContent = expression;
+      const right = document.createElement('div'); right.textContent = value;
+      right.className='muted';
+      item.appendChild(left); item.appendChild(right);
+      historyEl.prepend(item);
+      // keep small history in localStorage
+      try{
+        const hist = JSON.parse(localStorage.getItem('calc_history')||'[]');
+        hist.unshift({e:expression,v:value});
+        localStorage.setItem('calc_history', JSON.stringify(hist.slice(0,50)));
+      }catch(e){}
+    }
+
+    // load history
+    (function(){
+      try{
+        const hist = JSON.parse(localStorage.getItem('calc_history')||'[]');
+        hist.forEach(h=>{ const item=document.createElement('div'); item.className='item'; item.innerHTML=`<div>${h.e}</div><div class="muted">${h.v}</div>`; historyEl.appendChild(item); });
+      }catch(e){}
+    })();
+
+    document.getElementById('keys').addEventListener('click', e=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      const v = btn.dataset.value; const fn = btn.dataset.fn;
+      if(v!==undefined){
+        if(btn.id==='equals'){
+          try{
+            const val = evaluateExpression(expr);
+            lastAnswer = Number.isFinite(val) ? val : String(val);
+            pushHistory(expr+' =', lastAnswer);
+            expr = String(lastAnswer);
+            updateDisplay();
+          }catch(err){
+            resEl.textContent = err.message;
+          }
+        }else{
+          expr += v;
+          updateDisplay();
+        }
+      }else if(fn){
+        switch(fn){
+          case 'paren': expr += parenOpen?')':'('; parenOpen=!parenOpen; break;
+          case 'pow': expr += '^(' ; break;
+          case 'sqrt': expr += 'sqrt('; break;
+          case 'pct': expr += '%'; break;
+          case 'sin': expr += 'sin('; break;
+          case 'cos': expr += 'cos('; break;
+          case 'tan': expr += 'tan('; break;
+          case 'ln': expr += 'ln('; break;
+          case 'log': expr += 'log('; break;
+          case 'fact': expr += '!'; break;
+          case 'ans': expr += 'ANS'; break;
+          case 'back': expr = expr.slice(0,-1); break;
+        }
+        updateDisplay();
+      }
+    });
+
+    document.getElementById('clearAll').addEventListener('click', ()=>{ expr=''; lastAnswer=null; updateDisplay(); historyEl.innerHTML=''; localStorage.removeItem('calc_history'); });
+
+    // keyboard support
+    window.addEventListener('keydown', e=>{
+      if(e.key.match(/[0-9]/)) { expr += e.key; updateDisplay(); }
+      else if(e.key === 'Backspace'){ expr = expr.slice(0,-1); updateDisplay(); }
+      else if(e.key === 'Enter' || e.key === '='){ try{ const val = evaluateExpression(expr); lastAnswer = Number.isFinite(val)?val:String(val); pushHistory(expr+' =', lastAnswer); expr=String(lastAnswer); updateDisplay(); }catch(err){ resEl.textContent = err.message; } }
+      else if(['+','-','*','/','(',')','.','%','^'].includes(e.key)){ expr+= e.key; updateDisplay(); }
+      else if(e.key.toLowerCase()==='s' && e.ctrlKey){ e.preventDefault(); expr += 'sin('; updateDisplay(); }
+    });
+
+    // initial
+    updateDisplay();
+  </script>
+</body>
+</html>
